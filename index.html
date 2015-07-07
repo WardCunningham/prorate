@@ -1,0 +1,80 @@
+<html>
+  <head>
+    <script>var module={}</script>
+    <script src="node_modules/d3/d3.js"></script>
+    <script src="node_modules/priorityqueuejs/index.js"></script>
+  </head>
+  <body>
+
+    <center>
+      simulator<br>
+      clock: <span id="clock">0</span><br>
+      event: <span id="event">0</span><br>
+      count: <span id="count">0</span><br>
+      lead: <span id="lead">0</span><br>
+      trail: <span id="trail">0</span><br>
+      queue: <span id="queue">0</span><br>
+    </center>
+
+    <script>
+
+      var clock = Date.now()
+      var queue = new PriorityQueue(function (a, b) {return b.time - a.time})
+      var count = 0
+
+      function dom (id) {
+        return document.getElementById(id)
+      }
+
+      function rand (n) {
+        return Math.floor(Math.random() * n)
+      }
+
+      function tick () {
+        if (rand(50)) {
+          queue.enq({time: clock + rand(100), event: tick})
+        }
+      }
+
+      function tock () {
+        if (rand(50)) {
+          queue.enq({time: clock + rand(100), event: tick})
+        }
+        if (rand(500)) {
+          queue.enq({time: clock + rand(100), event: tock})
+        }
+      }
+
+      function dispatch () {
+          var it = queue.deq()
+          dom('clock').innerHTML = (clock = it.time)
+          dom('event').innerHTML = it.event.name
+          dom('count').innerHTML = count += 1
+          it.event()
+      }
+
+      function run () {
+        dom('queue').innerHTML = queue.size()
+        if (queue.size()) {
+          var dt = queue.peek().time - Date.now()
+          if (dt > 0) {
+            dom('lead').innerHTML = dt
+            setTimeout(run, dt)
+          } else {
+            dom('trail').innerHTML = dt
+            dispatch ()
+            run ()  
+          }
+        } else {
+          console.log('done')
+        }
+      }
+
+
+      tock()
+      run()
+
+    </script>
+
+  </body>
+</html>

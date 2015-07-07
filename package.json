@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "d3": "^3.5.6",
+    "priorityqueuejs": "^1.0.0"
+  }
+}
