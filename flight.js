@@ -1,8 +1,8 @@
 function flight () {
 
-  var margin = {top: 0, right: 0, bottom: 0, left: 0},
+  var margin = {top: 0, right: 100, bottom: 0, left: 100},
       width = 960 - margin.left - margin.right,
-      height = 200 - margin.top - margin.bottom;
+      height = 300 - margin.top - margin.bottom;
 
   var padding = 6,
       radius = d3.scale.sqrt().domain([0,5000]).range([5, 15]),
@@ -11,10 +11,6 @@ function flight () {
   var play = function (arrival) {}
 
   function my(selection) {
-
-    function readout(text) {
-      d3.select("#readout").text(text);
-    }
 
     var nodes = [];
     var force = d3.layout.force()
@@ -42,7 +38,7 @@ function flight () {
     // Update dom as transactions come and go
 
     function finished (transaction, now) {
-      return transaction.start + (transaction.client||3000) < now
+      return (transaction.remove || (transaction.start + (transaction.client||3000))) < now
     }
    
     var id = 0;
@@ -54,12 +50,11 @@ function flight () {
         }
       };
       play(function(arrival){
-        readout(new Date(arrival.time).toTimeString().split(" ")[0]+" "+arrival.request);
         arrival.id = id++;
         arrival.radius = radius(arrival.server);
         arrival.color = color(arrival.request);
-        arrival.cx = arrival.x = 10;
-        arrival.cy = arrival.y = height / 2 + Math.random()*30;
+        arrival.cx = arrival.x = 0;
+        arrival.cy = arrival.y = height / 2 + Math.random()*90;
         arrival.start = now;
         nodes.push(arrival);
       });
@@ -86,11 +81,16 @@ function flight () {
     }
 
     // Move nodes toward cluster focus.
+
+    function completed (d) {
+      var now = new Date().getTime();
+      return Math.min(now - d.start, d.client)/d.client
+    }
+
     function gravity(alpha) {
       return function(d) {
         d.y += (d.cy - d.y) * alpha;
-        var now = new Date().getTime();
-        var pos = width * (now - d.start)/d.client;
+        var pos = width * completed(d);
         d.x += (pos - d.x) * alpha;
       };
     }

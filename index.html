@@ -33,7 +33,7 @@
       <div id="flight"></div>
       <div id="retrobars"></div>
 
-      <div style="width: 30%; text-align: left;">
+      <div style="width: 40%; text-align: left;">
         <p>
           We model an application with transaction durations from milliseconds
           to seconds. Instrumentation collects these durations at end of flight
@@ -80,9 +80,10 @@
       function tick (opt) {
         if (rand(50)) {
           var client = rand(6000)+100
-          var transaction = {time: sim.clock, request: rand(5), client: client, server: rand(2000)}
+          var remove = batch(sim.clock + client)
+          var transaction = {time: sim.clock, request: rand(5), client: client, server: rand(2000), remove: remove}
           opt.arrive(transaction)
-          rep.queue.enq({time: batch(sim.clock + client), transaction: transaction})
+          rep.queue.enq({time: remove, transaction: transaction})
           sim.queue.enq({time: sim.clock + rand(1000), event: tick})
         }
       }
@@ -117,7 +118,7 @@ function next() {
   };
 }
 
-var w = 20
+var w = 15
 var h = 150
 
 var x = d3.scale.linear()
