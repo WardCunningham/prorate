@@ -4,6 +4,7 @@
     <script src="node_modules/d3/d3.js"></script>
     <script src="node_modules/priorityqueuejs/index.js"></script>
     <script src="flight.js"></script>
+    <script src="retrobars.js"></script>
   </head>
   <body>
 
@@ -64,6 +65,8 @@
       rep.count = 0
       rep.bin = 700
 
+      var data = d3.range(50).map(next);
+
 
       function dom (id) {
         return document.getElementById(id)
@@ -106,38 +109,13 @@
           dom('sim.queue').innerHTML = sim.queue.size()
       }
 
-      /////////////////////////////////
-
-var t = Date.now(),
-    data = d3.range(50).map(next);
-
-function next() {
-  return {
-    time: Date.now(),
-    value: 0
-  };
-}
-
-var w = 15
-var h = 150
-
-var x = d3.scale.linear()
-  .domain([0, 1])
-  .range([0, w])
-
-var y = d3.scale.linear()
-  .domain([0, 100000])
-  .rangeRound([0, h])
-
-      /////////////////////////////////
-
       function overlap (start, stop, first, last) {
         var earliest = Math.max(start, first)
         var latest = Math.min(stop, last)
         return latest > earliest ? latest - earliest : 0
       }
 
-      function report (opt) {
+      function tally (opt) {
           var it = rep.queue.deq()
           dom('rep.clock').innerHTML = rep.clock = it.time
           // dom('rep.event').innerHTML = it.event.name
@@ -159,72 +137,34 @@ var y = d3.scale.linear()
           dispatch({arrive: arrive})
         }
         while (rep.queue.size() && rep.queue.peek().time < Date.now()) {
-          report({arrive: arrive})
+          tally({arrive: arrive})
         }
+      }
+
+      function next () {
+        return { time: Date.now(), value: 0 }
+      }
+
+      function reporter () {
+        data.shift()
+        data.push(next())
+        d3.select('#retrobars')
+          .call(bars)
       }
 
       var chart = flight()
         .play(player)
-
-      tock({})
-
       d3.select('#flight')
         .call(chart)
 
-      /////////////////////////////////
+      var bars = retrobars()
+      d3.select('#retrobars')
+        .datum(data)
+        .call(bars)
 
+      setInterval(reporter, rep.bin);
+      tock({})
 
-
-var chart = d3.select("#retrobars")
-  .append("svg:svg")
-    .attr("class", "chart")
-    .attr("width", w * data.length - 1)
-    .attr("height", h);
-
-chart.append("svg:line")
-    .attr("x1", 0)
-    .attr("x2", w * data.length)
-    .attr("y1", h - .5)
-    .attr("y2", h - .5)
-    .attr("stroke", "#000");
-
-redraw();
-
-function redraw() {
-
-  var rect = chart.selectAll("rect")
-      .data(data, function(d) { return d.time; });
-
-  rect.enter().insert("svg:rect", "line")
-      .attr("x", function(d, i) { return x(i + 1) - .5; })
-      .attr("y", function(d) { return h - y(d.value) - .5; })
-      .attr("width", w)
-      .attr("height", function(d) { return y(d.value); })
-    .transition()
-      .duration(rep.bin/2)
-      .attr("x", function(d, i) { return x(i) - .5; });
-
-  rect.transition()
-      .duration(rep.bin/2)
-      .attr("x", function(d, i) { return x(i) - .5; })
-      .attr("y", function(d) { return h - y(d.value) - .5; })
-      .attr("height", function(d) { return y(d.value); })
-
-  rect.exit().transition()
-      .duration(rep.bin/2)
-      .attr("x", function(d, i) { return x(i - 1) - .5; })
-      .remove();
-
-}
-
-setInterval(function() {
-  data.shift();
-  data.push(next());
-  redraw();
-}, rep.bin);
-
-
-      /////////////////////////////////
 
     </script>
 
