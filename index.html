@@ -3,24 +3,67 @@
     <script>var module={}</script>
     <script src="node_modules/d3/d3.js"></script>
     <script src="node_modules/priorityqueuejs/index.js"></script>
+    <script src="flight.js"></script>
   </head>
   <body>
 
+    <style type='text/css'>
+      .chart rect {
+        fill: steelblue;
+        stroke: white;
+      }
+    </style>
+
     <center>
-      simulator<br>
-      clock: <span id="clock">0</span><br>
-      event: <span id="event">0</span><br>
-      count: <span id="count">0</span><br>
-      lead: <span id="lead">0</span><br>
-      trail: <span id="trail">0</span><br>
-      queue: <span id="queue">0</span><br>
+      <table width=30%>
+        <td>
+          <b>application</b><br>
+          clock: <span id="sim.clock">0</span><br>
+          count: <span id="sim.count">0</span><br>
+          queue: <span id="sim.queue">0</span><br>
+          event: <span id="sim.event">0</span><br>
+        <td>
+          <b>instrumentation</b><br>
+          clock: <span id="rep.clock">0</span><br>
+          count: <span id="rep.count">0</span><br>
+          queue: <span id="rep.queue">0</span><br>
+          prorate: <input type=checkbox id="rep.prorate"></input><br>
+      </table>
+
+      <div id="flight"></div>
+      <div id="retrobars"></div>
+
+      <div style="width: 30%; text-align: left;">
+        <p>
+          We model an application with transaction durations from milliseconds
+          to seconds. Instrumentation collects these durations at end of flight
+          and reports them in one second batches.
+        </p>
+        <p>
+          The instrumentation can tally durations as reported or optionally prorate
+          durations back to prevously reported intervals.
+          Reporting cylces slightly faster than collecting. This leads to gaps
+          in the report when transaction durations aren't prorated.
+        </p>
+      </div>
+
+
+
     </center>
 
     <script>
 
-      var clock = Date.now()
-      var queue = new PriorityQueue(function (a, b) {return b.time - a.time})
-      var count = 0
+      var sim = {}
+      sim.clock = Date.now()
+      sim.queue = new PriorityQueue(function (a, b) {return b.time - a.time})
+      sim.count = 0
+
+      var rep = {}
+      rep.clock = Date.now()
+      rep.queue = new PriorityQueue(function (a, b) {return b.time - a.time})
+      rep.count = 0
+      rep.bin = 700
+
 
       function dom (id) {
         return document.getElementById(id)
@@ -30,49 +73,157 @@
         return Math.floor(Math.random() * n)
       }
 
-      function tick () {
+      function batch (t) {
+        return t + (1000 - t%1000)
+      }
+
+      function tick (opt) {
         if (rand(50)) {
-          queue.enq({time: clock + rand(100), event: tick})
+          var client = rand(6000)+100
+          var transaction = {time: sim.clock, request: rand(5), client: client, server: rand(2000)}
+          opt.arrive(transaction)
+          rep.queue.enq({time: batch(sim.clock + client), transaction: transaction})
+          sim.queue.enq({time: sim.clock + rand(1000), event: tick})
         }
       }
 
-      function tock () {
+      function tock (opt) {
         if (rand(50)) {
-          queue.enq({time: clock + rand(100), event: tick})
+          sim.queue.enq({time: sim.clock + rand(1000), event: tick})
         }
         if (rand(500)) {
-          queue.enq({time: clock + rand(100), event: tock})
+          sim.queue.enq({time: sim.clock + rand(5000), event: tock})
         }
       }
 
-      function dispatch () {
-          var it = queue.deq()
-          dom('clock').innerHTML = (clock = it.time)
-          dom('event').innerHTML = it.event.name
-          dom('count').innerHTML = count += 1
-          it.event()
+      function dispatch (opt) {
+          var it = sim.queue.deq()
+          dom('sim.clock').innerHTML = sim.clock = it.time
+          dom('sim.event').innerHTML = it.event.name
+          dom('sim.count').innerHTML = sim.count += 1
+          it.event(opt)
+          dom('sim.queue').innerHTML = sim.queue.size()
       }
 
-      function run () {
-        dom('queue').innerHTML = queue.size()
-        if (queue.size()) {
-          var dt = queue.peek().time - Date.now()
-          if (dt > 0) {
-            dom('lead').innerHTML = dt
-            setTimeout(run, dt)
+      /////////////////////////////////
+
+var t = Date.now(),
+    data = d3.range(50).map(next);
+
+function next() {
+  return {
+    time: Date.now(),
+    value: 0
+  };
+}
+
+var w = 20
+var h = 150
+
+var x = d3.scale.linear()
+  .domain([0, 1])
+  .range([0, w])
+
+var y = d3.scale.linear()
+  .domain([0, 100000])
+  .rangeRound([0, h])
+
+      /////////////////////////////////
+
+      function overlap (start, stop, first, last) {
+        var earliest = Math.max(start, first)
+        var latest = Math.min(stop, last)
+        return latest > earliest ? latest - earliest : 0
+      }
+
+      function report (opt) {
+          var it = rep.queue.deq()
+          dom('rep.clock').innerHTML = rep.clock = it.time
+          // dom('rep.event').innerHTML = it.event.name
+          dom('rep.count').innerHTML = rep.count += 1
+          dom('rep.queue').innerHTML = rep.queue.size()
+          if (dom('rep.prorate').checked) {
+            var start = it.transaction.time
+            var stop = it.transaction.time + it.transaction.client
+            data.forEach(function (bin) {
+              bin.value += overlap(start, stop, bin.time, bin.time + rep.bin)
+            })
           } else {
-            dom('trail').innerHTML = dt
-            dispatch ()
-            run ()  
+            data[data.length-1].value += it.transaction.client
           }
-        } else {
-          console.log('done')
+      }
+
+      function player (arrive) {
+        while (sim.queue.size() && sim.queue.peek().time < Date.now()) {
+          dispatch({arrive: arrive})
+        }
+        while (rep.queue.size() && rep.queue.peek().time < Date.now()) {
+          report({arrive: arrive})
         }
       }
 
+      var chart = flight()
+        .play(player)
 
-      tock()
-      run()
+      tock({})
+
+      d3.select('#flight')
+        .call(chart)
+
+      /////////////////////////////////
+
+
+
+var chart = d3.select("#retrobars")
+  .append("svg:svg")
+    .attr("class", "chart")
+    .attr("width", w * data.length - 1)
+    .attr("height", h);
+
+chart.append("svg:line")
+    .attr("x1", 0)
+    .attr("x2", w * data.length)
+    .attr("y1", h - .5)
+    .attr("y2", h - .5)
+    .attr("stroke", "#000");
+
+redraw();
+
+function redraw() {
+
+  var rect = chart.selectAll("rect")
+      .data(data, function(d) { return d.time; });
+
+  rect.enter().insert("svg:rect", "line")
+      .attr("x", function(d, i) { return x(i + 1) - .5; })
+      .attr("y", function(d) { return h - y(d.value) - .5; })
+      .attr("width", w)
+      .attr("height", function(d) { return y(d.value); })
+    .transition()
+      .duration(rep.bin/2)
+      .attr("x", function(d, i) { return x(i) - .5; });
+
+  rect.transition()
+      .duration(rep.bin/2)
+      .attr("x", function(d, i) { return x(i) - .5; })
+      .attr("y", function(d) { return h - y(d.value) - .5; })
+      .attr("height", function(d) { return y(d.value); })
+
+  rect.exit().transition()
+      .duration(rep.bin/2)
+      .attr("x", function(d, i) { return x(i - 1) - .5; })
+      .remove();
+
+}
+
+setInterval(function() {
+  data.shift();
+  data.push(next());
+  redraw();
+}, rep.bin);
+
+
+      /////////////////////////////////
 
     </script>
 
