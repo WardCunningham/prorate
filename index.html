@@ -14,10 +14,13 @@
         fill: steelblue;
         stroke: white;
       }
+      circle, rect {
+        opacity: .7;
+      }
     </style>
 
     <center>
-      <table width=30%>
+      <table width=30% style="vertical-align: top;">
         <td>
           <b>application</b><br>
           clock: <span id="sim.clock">0</span><br>
@@ -29,6 +32,7 @@
           clock: <span id="rep.clock">0</span><br>
           count: <span id="rep.count">0</span><br>
           queue: <span id="rep.queue">0</span><br>
+          syncronize: <input type=checkbox id="rep.synchronize"></input><br>
           prorate: <input type=checkbox id="rep.prorate"></input><br>
       </table>
 
@@ -124,7 +128,7 @@
             var start = it.transaction.time
             var stop = it.transaction.time + it.transaction.client
             data.forEach(function (bin) {
-              bin.value += overlap(start, stop, bin.time, bin.time + rep.bin)
+              bin.value += overlap(start, stop, bin.time, bin.until)
             })
           } else {
             data[data.length-1].value += it.transaction.client
@@ -141,14 +145,16 @@
       }
 
       function next () {
-        return { time: Date.now(), value: 0 }
+        return { time: Date.now(), until: Date.now() + rep.bin, value: 0 }
       }
 
-      function reporter () {
+      function reporter (opt) {
         data.shift()
         data.push(next())
         d3.select('#retrobars')
           .call(bars)
+        rep.bin = dom('rep.synchronize').checked ? 1000 : 700
+        sim.queue.enq({time: Date.now() + rep.bin, event: reporter})
       }
 
       var chart = flight()
@@ -161,8 +167,8 @@
         .datum(data)
         .call(bars)
 
-      setInterval(reporter, rep.bin);
       tock({})
+      reporter({})
 
 
     </script>
