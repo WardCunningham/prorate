@@ -9,6 +9,7 @@ function flight () {
       color = d3.scale.category10();
 
   var play = function (arrival) {}
+  var mark = watermark({width:width, height:height})
 
   function my(selection) {
 
@@ -26,7 +27,9 @@ function flight () {
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
       .append("g")
-        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+        .datum("application")
+        .call(mark)
 
     var circle = svg.selectAll("circle")
         .data(nodes, function(d) { return d.id;})
@@ -54,7 +57,7 @@ function flight () {
         arrival.radius = radius(arrival.server);
         arrival.color = color(arrival.request);
         arrival.cx = arrival.x = 0;
-        arrival.cy = arrival.y = height / 2 + Math.random()*90;
+        arrival.cy = arrival.y = height / 2 + Math.random()*90-45;
         arrival.start = now;
         nodes.push(arrival);
       });
@@ -77,6 +80,7 @@ function flight () {
           .each(collide(.5))
           .attr("cx", function(d) { return d.x; })
           .attr("cy", function(d) { return d.y; });
+
       force.start();
     }
 

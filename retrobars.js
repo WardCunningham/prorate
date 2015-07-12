@@ -11,9 +11,12 @@ function retrobars () {
     .domain([0, 100000])
     .rangeRound([0, h])
 
+  var mark = watermark({height:h})
 
   function my (selection) {
     selection.each(function (data) {
+
+      mark.width(w*data.length)
 
       var svg = d3.select(this).selectAll('svg')
         .data([data])
@@ -24,6 +27,15 @@ function retrobars () {
           .attr("width", w * data.length - 1)
           .attr("height", h);
 
+      skeleton
+          .datum("instrumentation")
+          .call(mark)
+
+      skeleton
+        .append("g")
+        .attr("class","bars")
+        .data([data])
+
       skeleton.append("svg:line")
           .attr("x1", 0)
           .attr("x2", w * data.length)
@@ -31,7 +43,7 @@ function retrobars () {
           .attr("y2", h - .5)
           .attr("stroke", "#000");
 
-      var rect = svg.selectAll("rect")
+      var rect = svg.select("g.bars").selectAll("rect")
         .data(function(d) {return d}, function(d) { return d.time; });
 
       rect.enter().insert("svg:rect", "line")
